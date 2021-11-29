@@ -1,0 +1,39 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - uses: s4u/maven-settings-action@v2.4.1
+        with:
+          servers: |
+            [{
+              "id": "maven-public",
+              "username": "${{ secrets.FEED_USERNAME }}",
+              "password": "${{ secrets.FEED_PASSWORD }}"
+            }]
+      - name: Build with Maven
+        run: mvn -B clean deploy --file pom.xml -DUSER_NAME=$USER_NAME -DPASSWORD=$PASSWORD
+        # run: echo $(echo $USER_NAME | wc -c)
+        env:
+          USER_NAME: ${{ secrets.USER_NAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}

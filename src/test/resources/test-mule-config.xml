@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:java="http://www.mulesoft.org/schema/mule/java"
+      xmlns:file="http://www.mulesoft.org/schema/mule/file"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:smb="http://www.mulesoft.org/schema/mule/smb"
+      xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+      xmlns:ftps="http://www.mulesoft.org/schema/mule/ftps" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ftps http://www.mulesoft.org/schema/mule/ftps/current/mule-ftps.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/smb http://www.mulesoft.org/schema/mule/smb/current/mule-smb.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd">
+
+    <smb:config name="Smb_Config" doc:name="Smb Config" doc:id="89399b2c-0020-4841-91f2-a93977ec9b26">
+        <smb:connection host="${IP_ADDRESS}" share="users"  user="${USER_NAME}" password="${PASSWORD}">
+            <reconnection >
+                <reconnect />
+            </reconnection>
+        </smb:connection>
+    </smb:config>
+    <file:config name="File_Config" doc:name="File Config" doc:id="e423cde3-fced-413b-b516-a1c9d726356c" />
+    <flow name="destroy-flow" doc:id="7c41cd15-f0da-433d-8807-a3b6ba9d6669" >
+
+        <try doc:name="Try" doc:id="006f89ff-66c9-49d9-9f8e-a729af19480b" >
+            <file:delete doc:name="Delete" doc:id="9bc329eb-459a-43a3-b49c-93523191d5d4" config-ref="File_Config" path="#['tmp/local.json']" />
+            <error-handler >
+                <on-error-continue enableNotifications="false" logException="false" doc:name="On Error Continue" doc:id="94f80bf4-e680-4126-9861-ce52e193324e" type="ANY">
+                    <logger level="INFO" doc:name="Logger" doc:id="c99e29f5-3a1b-43cc-9f59-64061eb10dae" message="."/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+        <try doc:name="Try" doc:id="2913f626-61d2-4be9-8616-22a59005ba4d" >
+            <file:delete doc:name="Delete" doc:id="d502ea78-2f38-4d80-90fd-6d57c63ec7fa" config-ref="File_Config" path="#['tmp/remote.json']" />
+            <error-handler >
+                <on-error-continue enableNotifications="false" logException="false" doc:name="On Error Continue" doc:id="0120d336-5268-4c29-9253-61f240280195" type="ANY">
+                    <logger level="INFO" doc:name="Logger" doc:id="4cfbf6d2-d43c-4caa-8928-76b395145334" message="."/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+        <try doc:name="Try" doc:id="8fcd4716-0bde-46f6-a38b-02d4b2538e87" >
+            <file:delete doc:name="Delete" doc:id="5c6050b3-2fe2-4af9-b32d-17abda5d6996" path="tmp" />
+            <error-handler >
+                <on-error-continue enableNotifications="false" logException="false" doc:name="On Error Continue" doc:id="22e1a095-dbd4-4bf2-a857-95bee0ff4fd7" type="ANY">
+                    <logger level="INFO" doc:name="Logger" doc:id="a015df9f-67aa-429d-8cc1-122ad545d11b" message="."/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+        <smb:file-exists doc:name="File Exists" doc:id="84e46d34-4190-43e9-a215-88e9ec715488" config-ref="Smb_Config" folder="/tmp" target="exists" fileName="local.json"/>
+        <choice doc:name="Choice" doc:id="5417a788-35b4-44f8-98a4-1333ddc6234a" >
+            <when expression="#[vars.exists]">
+                <smb:rm-file doc:name="Delete File" doc:id="e9fbcdd9-3105-4e23-b1c0-17e6a7df36d3" config-ref="Smb_Config" targetFolder="/tmp" targetFileName="local.json" />
+            </when>
+        </choice>
+        <smb:file-exists doc:name="File Exists" doc:id="3a43f879-7748-4f4a-9499-70ad584a2375" config-ref="Smb_Config" fileName="remote.json" folder="/tmp" target="exists"/>
+        <choice doc:name="Choice" doc:id="7d139943-b7c6-48dd-89cb-0c40ffd4bac5" >
+            <when expression="#[vars.exists]">
+                <smb:rm-file doc:name="Delete File" doc:id="549f8add-0110-4bcf-b791-8015ea1862ce" config-ref="Smb_Config" targetFolder="/tmp" targetFileName="remote.json" />
+            </when>
+        </choice>
+        <smb:folder-exists doc:name="Folder Exists" doc:id="2d06518b-8de4-4953-a7b2-6d63f36eeca1" config-ref="Smb_Config" folder="/tmp" target="exists"/>
+        <choice doc:name="Choice" doc:id="cd20979d-5f4c-41be-9380-9e1c6b8ace25" >
+            <when expression="#[vars.exists]">
+                <smb:rm-dir doc:name="Remove Directory" doc:id="704f6de1-6121-4f05-b20d-e5ca937c825b" config-ref="Smb_Config" targetFolder="/tmp" />
+            </when>
+        </choice>
+    </flow>
+    <flow name="init-flow" doc:id="b4253ff6-06b6-4514-918b-6b7e03ab79d7" >
+
+        <set-payload value='#[output application/json --- {&#10;"employees":[&#10;    {"firstName":"John", "lastName":"Doe"},&#10;    {"firstName":"Anna", "lastName":"Smith"},&#10;    {"firstName":"Peter", "lastName":"Jones"}&#10;]&#10;}]' doc:name="Set Payload" doc:id="e5fb4513-a4da-417c-a325-d8b90fd819f6" mimeType="application/json" encoding="UTF-8"/>
+        <set-variable value="#[payload]" doc:name="Set Variable" doc:id="551de7a8-37ba-498a-846b-83319164c3c4" variableName="data"/>
+        <file:write doc:name="Create a file in local directory" doc:id="0d6aafe8-8d67-4ba4-9c18-8c4a177220c4" path="#['./tmp/local.json']" config-ref="File_Config"/>
+        <smb:mk-dir doc:name="Create Directory" doc:id="1b046647-9969-44d9-af8b-6d4128ee8528" config-ref="Smb_Config" targetFolder="/tmp/"/>
+        <smb:write doc:name="Create a file in remote location" doc:id="11c27486-fb54-44d2-8ee3-ea8b086aa13d" config-ref="Smb_Config" targetFileName="#['remote.json']" targetFolder="/tmp/" sourceStream="#[vars.data]"/>
+    </flow>
+    <flow name="read-flow" doc:id="1b7e3842-7052-41c9-989a-5fbf34184c3c" >
+
+        <smb:read doc:name="Read File" doc:id="3bb9ea7a-9d3b-49a1-8d5c-6f17f397041d" config-ref="Smb_Config" sourceFolder="/tmp" fileName="remote.json"/>
+        <file:write doc:name="Write" doc:id="d6e7c48d-052f-40b1-97e2-361e9931eec6" config-ref="File_Config" path="#['tmp/' ++ attributes.name]" />
+        <set-payload value="#[true]" doc:name="Set Payload" doc:id="f29a3937-db3b-46b9-8557-817fe8be817f" />
+        <error-handler >
+            <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1c7b7566-1647-452e-ba14-77b850bae5bd" >
+                <set-payload value="#[false]" doc:name="Set Payload" doc:id="83737a03-5453-4878-baa7-1da39d10e882" />
+            </on-error-continue>
+        </error-handler>
+    </flow>
+    <flow name="list-flow" doc:id="88e4bbb5-0878-4b8b-ada1-7d2eec30fde9" >
+
+        <smb:list doc:name="List a Folder" doc:id="1b81fc7d-9903-4154-883b-89e6a2da08de" config-ref="Smb_Config" sourceFolder="/tmp" searchPattern="*"/>
+        <foreach doc:name="For Each" doc:id="0c765cba-00ea-420a-bf16-5487ef7a59d1" >
+            <file:write doc:name="Write" doc:id="63e110b3-2571-4884-b6a7-8913a956d717" config-ref="File_Config" path="#['tmp/' ++ attributes.name]"/>
+        </foreach>
+        <set-payload value="#[true]" doc:name="Set Payload" doc:id="d3b060ae-2026-40ca-9be4-fc28e01a5393" />
+        <error-handler >
+            <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="f0ffeebf-a6e5-41dc-910c-90624f0db27c" >
+                <set-payload value="#[false]" doc:name="Set Payload" doc:id="6c60f3f9-dca3-4e6d-b3c9-96660daf0902" />
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <flow name="write-flow" doc:id="a7c8100f-47e3-4441-a8d9-94fb1f921319" >
+
+        <file:read doc:name="Read" doc:id="7fedf28f-0d12-4c2b-9c29-aa13f92ba259" path="tmp/local.json" config-ref="File_Config"/>
+        <smb:write doc:name="Write File" doc:id="c6a9e49d-25ed-44bd-b372-adb9c28f9330" config-ref="Smb_Config" targetFolder="/tmp"/>
+        <set-payload value="#[true]" doc:name="Set Payload" doc:id="0f348187-1e96-441b-9f74-5edf55570db6" />
+        <error-handler >
+            <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="c0a66bd3-a3d1-4c64-873d-c785ec16dfd1" >
+                <set-payload value="#[false]" doc:name="Set Payload" doc:id="8bbea911-3643-4119-84ef-294cf3f5dd9f" />
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <flow name="remote-copy-flow" doc:id="d77b7c30-9b8c-4f83-bb64-3fa6571f4c1f" >
+        <smb:remote-copy doc:name="Remote Copy File" doc:id="1f6869af-7426-4b7b-8e4e-5cf9442ecece" config-ref="Smb_Config" deleteSourceFileAfterRead="false" sourceFolder="/tmp" sourceFileName="remote.json" targetFolder="/" targetFileName="remote.json"/>
+    </flow>
+
+</mule>
