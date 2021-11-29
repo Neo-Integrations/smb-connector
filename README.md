@@ -49,7 +49,7 @@ Even though there are many connectors in the market, they do not support all the
    > ...
    > <repository>
    >  <id>maven-public</id>
-   >  <url>https://pkgs.dev.azure.com/NeoIntegration/MuleSoft/_packaging/maven-public/maven/v1</url>
+   >  <url>https://pkgs.dev.azure.com/NeoIntegration/MuleSoft/_packaging/mvn-public/maven/v1</url>
    >  <releases>
    >     <enabled>true</enabled>
    >  </releases>

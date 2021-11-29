@@ -172,12 +172,12 @@
         <repository>
             <id>maven-public</id>
             <name>Neo Integrations Public Maven Repo</name>
-            <url>${snapshotRepoUrl}</url>
+            <url>${releaseRepoUrl}</url>
         </repository>
         <snapshotRepository>
             <id>maven-public</id>
             <name>Neo Integrations Public Maven Repo</name>
-            <url>${releaseRepoUrl}</url>
+            <url>${snapshotRepoUrl}</url>
         </snapshotRepository>
     </distributionManagement>
 
