@@ -36,7 +36,7 @@ Even though there are many connectors in the market, they do not support all the
 > <dependency>
 >    <groupId>org.neointegrations</groupId>
 >    <artifactId>smb-connector</artifactId>
->    <version>1.0.0</version>
+>    <version>1.0.1</version>
 >    <classifier>mule-plugin</classifier>
 > </dependency>
 >    ```
@@ -80,10 +80,17 @@ Even though there are many connectors in the market, they do not support all the
 First thing first, you will need to create a SMB config. Here is an example of the config:
 ```xml
 <smb:config name="Smb_Config" doc:name="Smb Config" doc:id="89399b2c-0020-4841-91f2-a93977ec9b26">
-   <smb:connection host="163.172.147.233" share="users1"  user="example1" password="badpass" port="445" domain="WORKGROUP" timeout="60" socketTimeout="3600">
+   <smb:connection host="163.172.191.133" share="users"  user="example1" password="badpass" timeout="60" socketTimeout="3600">
       <reconnection >
          <reconnect frequency="3000" count="3"/>
       </reconnection>
+      <smb:dialects >
+         <smb:dialect value="SMB_2_0_2" />
+         <smb:dialect value="SMB_2_1" />
+         <smb:dialect value="SMB_3_0" />
+         <smb:dialect value="SMB_3_0_2" />
+         <smb:dialect value="SMB_3_1_1" />
+      </smb:dialects>
    </smb:connection>
 </smb:config>
 ```
@@ -93,54 +100,68 @@ First thing first, you will need to create a SMB config. Here is an example of t
 - `share`: Default is `sambashare`. The name of the SAMBA share.
 - `host`: IP address or domain name of the SMB server.
 - `port`: Default port is 445. The port of the SMB server.
+- `dialects`: Supported SMB versions are SMB_2_0_2, SMB_2_1, SMB_3_0, SMB_3_0_2, SMB_3_1_1, SMB_2XX and UNKNOWN.
 
+![Read a file](./images/config.png)
 
 #### Read a file
-
-![Read a file](./images/file-read.png)
 ```xml
- <flow name="read-flow" doc:id="1b7e3842-7052-41c9-989a-5fbf34184c3c" >
-     <http:listener doc:name="Listener" doc:id="d5e00fe9-b47b-412b-a5aa-bf68b7e862d4" config-ref="HTTP_Listener_config" path="/read"/>
-     <smb:read doc:name="Read File" doc:id="3bb9ea7a-9d3b-49a1-8d5c-6f17f397041d" config-ref="Smb_Config" sourceFolder="/tmp" fileName="remote.json"/>
-     <file:write doc:name="Write" doc:id="d6e7c48d-052f-40b1-97e2-361e9931eec6" config-ref="File_Config" path="#['tmp/' ++ attributes.name]" />
-     <set-payload value="#[true]" doc:name="Set Payload" doc:id="f29a3937-db3b-46b9-8557-817fe8be817f" />
- </flow>
-```
-
-#### Write a file
-![Write a file](./images/write-file.png)
-```xml
- <flow name="write-flow" doc:id="a7c8100f-47e3-4441-a8d9-94fb1f921319" >
-     <http:listener doc:name="Listener" doc:id="c390a14e-3793-4345-92d9-337661309af9" config-ref="HTTP_Listener_config" path="/write"/>
-     <file:read doc:name="Read" doc:id="7fedf28f-0d12-4c2b-9c29-aa13f92ba259" path="tmp/local.json" config-ref="File_Config"/>
-     <smb:write doc:name="Write File" doc:id="c6a9e49d-25ed-44bd-b372-adb9c28f9330" config-ref="Smb_Config" targetFolder="/tmp"/>
-     <set-payload value="#[true]" doc:name="Set Payload" doc:id="0f348187-1e96-441b-9f74-5edf55570db6" />
- </flow>
-
-```
-
-#### List a folder
-![List a folder](./images/list-file.png)
-```xml
-
-<flow name="list-flow" doc:id="88e4bbb5-0878-4b8b-ada1-7d2eec30fde9" >
-     <http:listener doc:name="Listener" doc:id="52218aa5-f53f-4932-b497-6c6bf5ec792a" config-ref="HTTP_Listener_config" path="/list"/>
-     <smb:list doc:name="List a Folder" doc:id="1b81fc7d-9903-4154-883b-89e6a2da08de" config-ref="Smb_Config" sourceFolder="/tmp" searchPattern="*"/>
-     <foreach doc:name="For Each" doc:id="0c765cba-00ea-420a-bf16-5487ef7a59d1" >
-         <file:write doc:name="Write" doc:id="63e110b3-2571-4884-b6a7-8913a956d717" config-ref="File_Config" path="#['tmp/' ++ attributes.name]"/>
-     </foreach>
-     <set-payload value="#[true]" doc:name="Set Payload" doc:id="d3b060ae-2026-40ca-9be4-fc28e01a5393" />
+<flow name="read-flow" doc:id="1b7e3842-7052-41c9-989a-5fbf34184c3c" >
+   <http:listener doc:name="Listener" doc:id="d5e00fe9-b47b-412b-a5aa-bf68b7e862d4" config-ref="HTTP_Listener_config" path="/read"/>
+   <smb:read doc:name="Read File" doc:id="3bb9ea7a-9d3b-49a1-8d5c-6f17f397041d" config-ref="Smb_Config" sourceFolder="/tmp" fileName="remote.json"/>
+   <file:write doc:name="Write" doc:id="d6e7c48d-052f-40b1-97e2-361e9931eec6" config-ref="File_Config" path="#['tmp/' ++ attributes.name]" />
+   <set-payload value="#[true]" doc:name="Set Payload" doc:id="f29a3937-db3b-46b9-8557-817fe8be817f" />
+   <error-handler >
+      <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1c7b7566-1647-452e-ba14-77b850bae5bd" >
+         <set-payload value="#[false]" doc:name="Set Payload" doc:id="83737a03-5453-4878-baa7-1da39d10e882" />
+      </on-error-continue>
+   </error-handler>
 </flow>
 ```
+![Read a file](./images/file-read.png)
+
+#### Write a file
+```xml
+<flow name="write-flow" doc:id="a7c8100f-47e3-4441-a8d9-94fb1f921319" >
+   <http:listener doc:name="Listener" doc:id="c390a14e-3793-4345-92d9-337661309af9" config-ref="HTTP_Listener_config" path="/write"/>
+   <file:read doc:name="Read" doc:id="7fedf28f-0d12-4c2b-9c29-aa13f92ba259" path="tmp/local.json" config-ref="File_Config"/>
+   <smb:write doc:name="Write File" doc:id="c6a9e49d-25ed-44bd-b372-adb9c28f9330" config-ref="Smb_Config" targetFolder="/tmp"/>
+   <set-payload value="#[true]" doc:name="Set Payload" doc:id="0f348187-1e96-441b-9f74-5edf55570db6" />
+   <error-handler >
+      <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="c0a66bd3-a3d1-4c64-873d-c785ec16dfd1" >
+         <set-payload value="#[false]" doc:name="Set Payload" doc:id="8bbea911-3643-4119-84ef-294cf3f5dd9f" />
+      </on-error-continue>
+   </error-handler>
+</flow>
+```
+![Write a file](./images/write-file.png)
+
+#### List a folder
+```xml
+<flow name="list-flow" doc:id="88e4bbb5-0878-4b8b-ada1-7d2eec30fde9" >
+   <http:listener doc:name="Listener" doc:id="52218aa5-f53f-4932-b497-6c6bf5ec792a" config-ref="HTTP_Listener_config" path="/list"/>
+   <smb:list doc:name="List a Folder" doc:id="1b81fc7d-9903-4154-883b-89e6a2da08de" config-ref="Smb_Config" sourceFolder="/INBOUND" searchPattern="*"/>
+   <foreach doc:name="For Each" doc:id="0c765cba-00ea-420a-bf16-5487ef7a59d1" >
+      <ftps:write doc:name="Write File" doc:id="9b348121-ca0b-4a7c-a714-3c1befc6a924" config-ref="FTPS_Config" targetFileName="#[attributes.name]" targetFolder='/'/>
+   </foreach>
+   <set-payload value="#[true]" doc:name="Set Payload" doc:id="d3b060ae-2026-40ca-9be4-fc28e01a5393" />
+   <error-handler >
+      <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="f0ffeebf-a6e5-41dc-910c-90624f0db27c" >
+         <set-payload value="#[false]" doc:name="Set Payload" doc:id="6c60f3f9-dca3-4e6d-b3c9-96660daf0902" />
+      </on-error-continue>
+   </error-handler>
+</flow>
+```
+![List a folder](./images/list-file.png)
 
 #### Remote Copy: Copy a file from one location to another in the remote SMB server
-![Remote Copy](./images/remote-copy.png)
 ```xml
 <flow name="remote-copy-flow" doc:id="d77b7c30-9b8c-4f83-bb64-3fa6571f4c1f" >
    <http:listener doc:name="Listener" doc:id="f5ca8293-19be-48e1-af71-871eb613420b" config-ref="HTTP_Listener_config" path="/rcopy"/>
    <smb:remote-copy doc:name="Remote Copy File" doc:id="1f6869af-7426-4b7b-8e4e-5cf9442ecece" config-ref="Smb_Config" deleteSourceFileAfterRead="false" sourceFolder="/tmp" sourceFileName="remote.json" targetFolder="/" targetFileName="remote.json"/>
 </flow>
 ```
+![Remote Copy](./images/remote-copy.png)
 
 ### Advance options
 
