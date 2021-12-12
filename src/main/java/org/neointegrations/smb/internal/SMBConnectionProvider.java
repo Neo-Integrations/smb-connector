@@ -16,8 +16,11 @@ import org.mule.runtime.extension.api.annotation.param.Parameter;
 import org.mule.runtime.extension.api.annotation.param.display.Password;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.hierynomus.mssmb2.SMB2Dialect;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -66,6 +69,10 @@ public class SMBConnectionProvider implements PoolingConnectionProvider<SMBConne
     @Parameter
     private long socketTimeout;
 
+    @Optional()
+    @Parameter
+    private List<String> dialects;
+
     private SmbConfig _smbConfig = null;
 
 
@@ -80,12 +87,20 @@ public class SMBConnectionProvider implements PoolingConnectionProvider<SMBConne
             throw new IllegalArgumentException("Share name can't be empty or null");
         }
 
+        List<SMB2Dialect> ds = null;
+        if(dialects != null && dialects.size() > 0) {
+            ds = new ArrayList<>(dialects.size());
+            for (String str : dialects) {
+                ds.add(SMB2Dialect.valueOf(str));
+            }
+        }
+
         try {
             if (this.share.startsWith("/")) {
                 this.share = this.share.replace("/", Constant.EMPTY).trim();
             }
             SMBConnection connection = new SMBConnection();
-            SAMBAClient smbClient = new SAMBAClient(this, connection, this.timeout, this.socketTimeout);
+            SAMBAClient smbClient = new SAMBAClient(this, connection, this.timeout, this.socketTimeout, ds);
             Session session = smbClient.login(this.host, this.port,
                     this.user, this.password, this.domain);
             DiskShare diskShare = (DiskShare) session.connectShare(this.share);
@@ -126,9 +141,18 @@ public class SMBConnectionProvider implements PoolingConnectionProvider<SMBConne
 
     public void reconnect(SMBConnection connection) throws ConnectionException {
         _logger.info(" *** Reconnecting...");
+
+        List<SMB2Dialect> ds = null;
+        if(dialects != null && dialects.size() > 0) {
+            ds = new ArrayList<>(dialects.size());
+            for (String str : dialects) {
+                ds.add(SMB2Dialect.valueOf(str));
+            }
+        }
+
         try {
             connection.getSmbClient().disconnect(connection);
-            final SAMBAClient smbClient = new SAMBAClient(this, connection, this.timeout, this.socketTimeout);
+            final SAMBAClient smbClient = new SAMBAClient(this, connection, this.timeout, this.socketTimeout, ds);
             final Session session = smbClient.login(this.host, this.port,
                     this.user, this.password, this.domain);
             final DiskShare share = (DiskShare) session.connectShare(this.share);

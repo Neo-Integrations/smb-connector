@@ -80,15 +80,15 @@ Even though there are many connectors in the market, they do not support all the
 First thing first, you will need to create a SMB config. Here is an example of the config:
 ```xml
 <smb:config name="Smb_Config" doc:name="Smb Config" doc:id="89399b2c-0020-4841-91f2-a93977ec9b26">
-   <smb:connection host="192.168.68.119" share="sambashare"  user="aminul" password="Change1t" port="445" timeout="60" socketTimeout="3600" domain="WORKGROUP" >
+   <smb:connection host="163.172.147.233" share="users1"  user="example1" password="badpass" port="445" domain="WORKGROUP" timeout="60" socketTimeout="3600">
       <reconnection >
-         <reconnect frequency="2000" count="2"/>
+         <reconnect frequency="3000" count="3"/>
       </reconnection>
    </smb:connection>
 </smb:config>
 ```
 - `timeout`: Default is `60` seconds. Connection timeout. If the connection is not setup within the timeout seconds, connector will throw timeout error. The unit is `second`.
-- `socketTimeout`: Default is `120` seconds. This applies to socket read timeout. If there is no data read within this period, connector will throw exception. The unit is `second`
+- `socketTimeout`: Default is `3600` seconds. This applies to socket read timeout. If there is no data read within this period, connector will throw exception. The unit is `second`
 - `domain`: Default is `WORKGROUP`. Windows domain. 
 - `share`: Default is `sambashare`. The name of the SAMBA share.
 - `host`: IP address or domain name of the SMB server.

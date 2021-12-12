@@ -40,12 +40,19 @@ public class SMBWriteOperations {
                              @Connection SMBConnection smbConnection,
                              @Optional(defaultValue = "#[payload]") InputStream sourceStream,
                              @Optional(defaultValue = "#[attributes.fileName]") String targetFileName,
-                             @Path(type = DIRECTORY,
-                                 location = EXTERNAL) @Optional(defaultValue = "/home/share") String targetFolder,
-                             @Optional(defaultValue = "true") @Placement( tab = ADVANCED_TAB) boolean overwriteFile,
-                             @Optional(defaultValue = "false") @Placement( tab = ADVANCED_TAB) boolean lockFileWhileWriting,
-                             @Optional(defaultValue = "true") @Placement( tab = ADVANCED_TAB) boolean createParentDirectory,
-                             @Optional(defaultValue = "false") @Placement( tab = ADVANCED_TAB) boolean appendToTargetFile) throws ConnectionException {
+                             @Optional(defaultValue = "#['.' ++ (uuid() replace('-') with('_'))]")  String intermediateFileName,
+                             @Optional(defaultValue = "false")  boolean createIntermediateFile,
+                             @Path(type = DIRECTORY, location = EXTERNAL)
+                                @Optional(defaultValue = "/home/share") String targetFolder,
+                             @Optional(defaultValue = "true")
+                                @Placement( tab = ADVANCED_TAB) boolean overwriteFile,
+                             @Optional(defaultValue = "false")
+                                @Placement( tab = ADVANCED_TAB) boolean lockFileWhileWriting,
+                             @Optional(defaultValue = "true")
+                                @Placement( tab = ADVANCED_TAB) boolean createParentDirectory,
+                             @Optional(defaultValue = "false")
+                                @Placement( tab = ADVANCED_TAB) boolean appendToTargetFile)
+            throws ConnectionException {
 
         _logger.info("Saving file {}", targetFileName);
         boolean fileCreate = false;
@@ -65,25 +72,34 @@ public class SMBWriteOperations {
                 }
             }
 
-            fileToWrite = smbConnection.getSmbClient().openFileForWrite(targetFileName, targetFolder,
-                    smbConnection, overwriteFile, appendToTargetFile, lockFileWhileWriting);
+            fileToWrite = smbConnection.getSmbClient().openFileForWrite(
+                    (createIntermediateFile == true? intermediateFileName : targetFileName),
+                    targetFolder, smbConnection,
+                    overwriteFile,  appendToTargetFile,  lockFileWhileWriting);
 
-            if (appendToTargetFile) {
-                outStream = fileToWrite.getOutputStream(true);
-            } else {
-                outStream = fileToWrite.getOutputStream();
-            }
+            outStream = fileToWrite.getOutputStream(appendToTargetFile);
             IOUtils.copyLarge(sourceStream, outStream);
-            fileCreate = true;
+
+            outStream.flush();
+            outStream.close();
+            outStream = null;
+
+            if(createIntermediateFile) {
+                String targetPath = SMBUtil.prepareFilePath(targetFolder, targetFileName);
+                fileToWrite.rename(targetPath);
+                fileToWrite.close();
+                fileToWrite = null;
+            }
+
+            return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while writing the file", exp);
+            throw new RuntimeException(exp);
         } finally {
                 try{ if (outStream != null) outStream.flush(); }catch(Exception ignored){}
                 try{ if (outStream != null) outStream.close(); }catch(Exception ignored){}
                 try{ if (fileToWrite != null) fileToWrite.close(); }catch(Exception ignored){}
         }
-
-        return fileCreate;
     }
 
     @Summary("Deleting a file from the SMB server")
@@ -112,9 +128,9 @@ public class SMBWriteOperations {
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while deleting the file {}", fileName, exp);
+            throw new RuntimeException(exp);
         }
 
-        return false;
     }
 
     @Summary("Deleting a folder from the SMB server. If a folder has files, make sure to delete them first first, before deleting the folder. In case for force deleting everything, use the recursive=true")
@@ -132,7 +148,6 @@ public class SMBWriteOperations {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            //smbConnection.getProvider().reconnect();
         }
         try {
             if(smbConnection.getDiskShare().folderExists(targetFolder)) {
@@ -143,9 +158,8 @@ public class SMBWriteOperations {
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while deleting the directory {}", targetFolder, exp);
+            throw new RuntimeException(exp);
         }
-
-        return false;
     }
 
     @Summary("Create a new directory if not already exists")
@@ -172,9 +186,8 @@ public class SMBWriteOperations {
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while deleting the directory {}", targetFolder, exp);
+            throw new RuntimeException(exp);
         }
-
-        return false;
     }
 
     @Summary("Rename directory/file if already exists")
@@ -235,6 +248,7 @@ public class SMBWriteOperations {
                             sourceFileName, sourceFolder, smbConnection, false))
                     {
                         sourceFile.rename(targetPath);
+
                     }
                 } else if(!ignoreErrorOnExists) {
                     throw new IllegalStateException("File ["+ targetPath+"] already exists");
@@ -244,8 +258,8 @@ public class SMBWriteOperations {
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while renaming the file / directory {}", targetPath, exp);
+            throw new RuntimeException(exp);
         }
-        return false;
     }
 
     @Summary("Copy a file from one location to another in the remote SB server. It is like the unit command `mv`")
@@ -290,16 +304,19 @@ public class SMBWriteOperations {
                     smbConnection, overwriteTargetFile, appendToTheTargetFile, lockFileWhileWriting);
 
             sourceFile.remoteCopyTo(targetFile);
+            sourceFile.close();
+            sourceFile = null;
+            targetFile.close();
+            targetFile = null;
 
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while deleting the directory {}", targetFolder, exp);
+            throw new RuntimeException(exp);
         } finally {
-            try{sourceFile.close();} catch(Exception ignored){}
-            try{targetFile.close();} catch(Exception ignored){}
+           if(sourceFile != null) {try{sourceFile.close();} catch(Exception ignored){}}
+           if(targetFile != null) { try{targetFile.close();} catch(Exception ignored){}}
         }
-
-        return false;
     }
 
 }

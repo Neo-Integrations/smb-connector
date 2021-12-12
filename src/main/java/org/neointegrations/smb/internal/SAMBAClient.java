@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -30,8 +31,9 @@ public class SAMBAClient extends SMBClient {
     private final Logger _logger = LoggerFactory.getLogger(SAMBAClient.class);
 
     public SAMBAClient(SMBConnectionProvider provider,
-                       SMBConnection connection, long timeout, long socketTimeout) {
-        super(getConfig(provider, connection, timeout, socketTimeout));
+                       SMBConnection connection, long timeout,
+                       long socketTimeout, List<SMB2Dialect> dialects) {
+        super(getConfig(provider, connection, timeout, socketTimeout, dialects));
     }
 
     public Session  login(String host, int port, String user, String password, String domain) throws IOException {
@@ -45,17 +47,32 @@ public class SAMBAClient extends SMBClient {
     }
 
     private static SmbConfig getConfig(SMBConnectionProvider provider,
-                               SMBConnection connection, long timeout, long socketTimeout) {
+                               SMBConnection connection, long timeout,
+                               long socketTimeout, List<SMB2Dialect> dialects) {
 
         final TransportLayerFactory<SMBPacketData<?>, SMBPacket<?, ?>> DEFAULT_TRANSPORT_LAYER_FACTORY =
                 new CustomDirectTcpTransportFactory(provider, connection);
 
-        return SmbConfig.builder()
-                .withTimeout(timeout, TimeUnit.SECONDS)
-                .withSoTimeout(socketTimeout, TimeUnit.SECONDS)
-                .withTransportLayerFactory(DEFAULT_TRANSPORT_LAYER_FACTORY)
-                .withDialects(SMB2Dialect.SMB_3_1_1, SMB2Dialect.SMB_3_0_2, SMB2Dialect.SMB_3_0, SMB2Dialect.SMB_2_1, SMB2Dialect.SMB_2_0_2)
-                .build();
+
+        if(dialects != null && dialects.size() > 0) {
+            return SmbConfig.builder()
+                    .withTimeout(timeout, TimeUnit.SECONDS)
+                    .withSoTimeout(socketTimeout, TimeUnit.SECONDS)
+                    .withTransportLayerFactory(DEFAULT_TRANSPORT_LAYER_FACTORY)
+                    .withDialects(dialects)
+                    .build();
+        } else {
+            return SmbConfig.builder()
+                    .withTimeout(timeout, TimeUnit.SECONDS)
+                    .withSoTimeout(socketTimeout, TimeUnit.SECONDS)
+                    .withTransportLayerFactory(DEFAULT_TRANSPORT_LAYER_FACTORY)
+                    .withDialects(SMB2Dialect.SMB_3_1_1,
+                            SMB2Dialect.SMB_3_0_2,
+                            SMB2Dialect.SMB_3_0,
+                            SMB2Dialect.SMB_2_1,
+                            SMB2Dialect.SMB_2_0_2)
+                    .build();
+        }
     }
 
     public void disconnect(SMBConnection connection) {

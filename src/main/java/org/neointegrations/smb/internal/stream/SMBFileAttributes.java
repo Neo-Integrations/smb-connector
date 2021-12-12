@@ -3,6 +3,7 @@ package org.neointegrations.smb.internal.stream;
 import com.hierynomus.smbj.share.File;
 import org.mule.extension.file.common.api.AbstractFileAttributes;
 import org.mule.runtime.extension.api.annotation.param.Parameter;
+import org.neointegrations.smb.internal.util.SMBUtil;
 
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -38,7 +39,7 @@ public class SMBFileAttributes extends AbstractFileAttributes {
 
     public SMBFileAttributes(long size, boolean regularFile, boolean directory,
                              boolean symbolicLink, String path, String name, Date timestamp) {
-        super(Paths.get(path + "\\" + name));
+        super(Paths.get(SMBUtil.trimPath(path, name)));
         this.size = size;
         this.regularFile = regularFile;
         this.directory = directory;
