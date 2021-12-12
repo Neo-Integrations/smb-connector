@@ -1,14 +1,9 @@
 package org.neointegrations.smb.internal;
 
-import com.hierynomus.msdtyp.AccessMask;
 import com.hierynomus.msfscc.FileAttributes;
 import com.hierynomus.msfscc.fileinformation.FileAllInformation;
 import com.hierynomus.msfscc.fileinformation.FileIdBothDirectoryInformation;
-import com.hierynomus.mssmb2.SMB2CreateDisposition;
-import com.hierynomus.mssmb2.SMB2CreateOptions;
-import com.hierynomus.mssmb2.SMB2ShareAccess;
 import com.hierynomus.protocol.commons.EnumWithValue;
-import com.hierynomus.smbj.share.Directory;
 import com.hierynomus.smbj.share.File;
 import org.mule.runtime.api.connection.ConnectionException;
 import org.mule.runtime.extension.api.annotation.param.*;
@@ -70,7 +65,6 @@ public class SMBReadOperations  {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            // smbConnection.getProvider().reconnect();
         }
 
         final Map<String, Long> nameSizeMap = new HashMap<>();
@@ -114,9 +108,11 @@ public class SMBReadOperations  {
             }
 
             if(sizeCheckEnabled) {
-                long fileSize = nameSizeMap.get(file.getFileName());
-                if (fileSize == 0 && file.getEndOfFile() == 0) return;
-                if (file.getEndOfFile() != fileSize) return;
+                Long fileSize = nameSizeMap.get(file.getFileName());
+                if(fileSize != null) {
+                    if (fileSize == 0 && file.getEndOfFile() == 0) return;
+                    if (file.getEndOfFile() != fileSize) return;
+                }
             }
 
             SMBFileAttributes attr = new SMBFileAttributes(file.getEndOfFile(), true,
