@@ -45,6 +45,7 @@ public class SMBReadOperations  {
                              @Optional(defaultValue = "*.*")  String searchPattern,
                              @Optional @DisplayName("File Matching Rules")
                                  @Summary("Matcher to filter the listed files") SMBFileMatcher matcher,
+                             @Optional(defaultValue = "false")  boolean createIntermediateFile,
                              @Optional(defaultValue = "false")
                                       @Placement( tab = ADVANCED_TAB) boolean lockTheFileWhileReading,
                              @Optional(defaultValue = "true")
@@ -103,7 +104,8 @@ public class SMBReadOperations  {
 
             // Exclude hidden, directory or '.' and '..' from the processing.
             if(isHidden || isDirectory ||
-                    (file.getFileName() != null && file.getFileName().startsWith("."))) {
+                    (file.getFileName() != null && file.getFileName().startsWith(".")) ||
+                    (file.getFileName() != null && file.getFileName().startsWith("__"))) {
                 return;
             }
 
@@ -123,18 +125,18 @@ public class SMBReadOperations  {
             if(!match.test(attr)) {
                 return;
             }
-            // Filters end
 
+            // Filters end
             File sourceFile = smbConnection.getSmbClient().openFileForRead(file.getFileName(),
                     sourceFolder, smbConnection,
                     lockTheFileWhileReading);
 
             files.add(Result.<InputStream, SMBFileAttributes>builder()
-                    .output(new ProgressInputStream(smbConnection, sourceFile.getInputStream(), sourceFile, deleteTheFileAfterRead))
+                    .output(new ProgressInputStream(smbConnection, lockTheFileWhileReading,
+                            sourceFile, deleteTheFileAfterRead,
+                            createIntermediateFile))
                     .attributes(attr)
                     .build());
-
-
         });
 
         return files;
@@ -147,6 +149,7 @@ public class SMBReadOperations  {
                            @Connection SMBConnection smbConnection,
                            @Optional(defaultValue = "/home/share") String sourceFolder,
                            @Optional(defaultValue = "abc.txt") String fileName,
+                           @Optional(defaultValue = "false")  boolean createIntermediateFile,
                            @Optional(defaultValue = "false")
                                     @Placement( tab = ADVANCED_TAB) boolean lockFileWhileReading,
                            @Optional(defaultValue = "true")
@@ -160,7 +163,6 @@ public class SMBReadOperations  {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            // smbConnection.getProvider().reconnect();
         }
         Result<InputStream, SMBFileAttributes> result = null;
 
@@ -194,15 +196,22 @@ public class SMBReadOperations  {
                 file.getFileInformation().getBasicInformation().getChangeTime() != null &&
                 file.getFileInformation().getBasicInformation().getChangeTime().toDate() != null) {
             modifiedTime = file.getFileInformation().getBasicInformation().getChangeTime().toDate();
-        }
 
-        InputStream inputStream = file.getInputStream();
-        SMBFileAttributes attr = new SMBFileAttributes(0, true,
-                false, false,
-                SMBUtil.directory(file.getUncPath()), SMBUtil.fileName(file.getUncPath()), modifiedTime);
+        }
+        long size = 0;
+        boolean directory = false;
+        if(file.getFileInformation() != null && file.getFileInformation().getStandardInformation() != null) {
+            size = file.getFileInformation().getStandardInformation().getEndOfFile();
+            directory = file.getFileInformation().getStandardInformation().isDirectory();
+        }
+        SMBFileAttributes attr = new SMBFileAttributes(size, !directory,
+                directory, false,
+                SMBUtil.directory(file.getPath()), SMBUtil.fileName(file.getPath()), modifiedTime);
 
         result = Result.<InputStream, SMBFileAttributes>builder()
-                .output(new ProgressInputStream(smbConnection, inputStream, file, deleteFileAfterRead))
+                .output(new ProgressInputStream(smbConnection, lockFileWhileReading,
+                        file,deleteFileAfterRead,
+                        createIntermediateFile))
                 .attributes(attr)
                 .build();
 
@@ -224,7 +233,6 @@ public class SMBReadOperations  {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            // smbConnection.getProvider().reconnect();
         }
         String dest = SMBUtil.prepareFilePath(folder, fileName);
         return smbConnection.getDiskShare().fileExists(dest);
@@ -242,7 +250,6 @@ public class SMBReadOperations  {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            // smbConnection.getProvider().reconnect();
         }
         return smbConnection.getDiskShare().folderExists(folder);
     }

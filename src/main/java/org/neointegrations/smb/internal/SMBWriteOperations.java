@@ -22,6 +22,7 @@ import org.mule.runtime.extension.api.annotation.param.Connection;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -40,7 +41,6 @@ public class SMBWriteOperations {
                              @Connection SMBConnection smbConnection,
                              @Optional(defaultValue = "#[payload]") InputStream sourceStream,
                              @Optional(defaultValue = "#[attributes.fileName]") String targetFileName,
-                             @Optional(defaultValue = "#['.' ++ (uuid() replace('-') with('_'))]")  String intermediateFileName,
                              @Optional(defaultValue = "false")  boolean createIntermediateFile,
                              @Path(type = DIRECTORY, location = EXTERNAL)
                                 @Optional(defaultValue = "/home/share") String targetFolder,
@@ -59,7 +59,6 @@ public class SMBWriteOperations {
 
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
-            // smbConnection.getProvider().reconnect();
             throw new ConnectionException("Connection error, operation will be retried...");
         }
         OutputStream outStream = null;
@@ -71,7 +70,7 @@ public class SMBWriteOperations {
                     smbConnection.getDiskShare().mkdir(targetFolder);
                 }
             }
-
+            String intermediateFileName = "__" + Calendar.getInstance().getTimeInMillis() + "_" + targetFileName;
             fileToWrite = smbConnection.getSmbClient().openFileForWrite(
                     (createIntermediateFile == true? intermediateFileName : targetFileName),
                     targetFolder, smbConnection,
@@ -90,7 +89,6 @@ public class SMBWriteOperations {
                 fileToWrite.close();
                 fileToWrite = null;
             }
-
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while writing the file", exp);
@@ -117,7 +115,6 @@ public class SMBWriteOperations {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            //smbConnection.getProvider().reconnect();
         }
         try {
             if(smbConnection.getDiskShare().fileExists(fileName)) {
@@ -175,7 +172,6 @@ public class SMBWriteOperations {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-            //smbConnection.getProvider().reconnect();
         }
         try {
             if(!smbConnection.getDiskShare().folderExists(targetFolder)) {
@@ -287,7 +283,6 @@ public class SMBWriteOperations {
         if(smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
-           // smbConnection.getProvider().reconnect();
         }
         File sourceFile = null;
         File targetFile = null;

@@ -4,7 +4,9 @@ import org.mule.extension.file.common.api.matcher.NullFilePayloadPredicate;
 import org.mule.runtime.api.connection.ConnectionException;
 import org.mule.runtime.api.connection.ConnectionProvider;
 import org.mule.runtime.api.exception.MuleRuntimeException;
+import org.mule.runtime.api.meta.ExpressionSupport;
 import org.mule.runtime.extension.api.annotation.Alias;
+import org.mule.runtime.extension.api.annotation.Expression;
 import org.mule.runtime.extension.api.annotation.execution.OnError;
 import org.mule.runtime.extension.api.annotation.execution.OnSuccess;
 import org.mule.runtime.extension.api.annotation.execution.OnTerminate;
@@ -92,6 +94,10 @@ public class SMBSources extends PollingSource<InputStream, SMBFileAttributes> {
     @Optional(defaultValue = "false")
     private boolean watermarkEnabled;
 
+    @Parameter
+    @Optional(defaultValue = "false")
+    private boolean createIntermediateFile;
+
     private Predicate<SMBFileAttributes> matcher;
 
 
@@ -110,7 +116,7 @@ public class SMBSources extends PollingSource<InputStream, SMBFileAttributes> {
                 final SMBReadOperations read = new SMBReadOperations();
                 final List<Result<InputStream, SMBFileAttributes>> files =  read.list(config,
                         connection, searchPattern,
-                        predicateBuilder, lockTheFileWhileReading,
+                        predicateBuilder, createIntermediateFile, lockTheFileWhileReading,
                         false, timeBetweenSizeCheckInSeconds,
                         sizeCheckEnabled, sourceFolder);
 
