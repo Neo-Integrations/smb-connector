@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.neointegrations</groupId>
     <artifactId>smb-connector</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.5</version>
     <packaging>mule-extension</packaging>
     <name>SMB Extension</name>
 
@@ -12,7 +12,6 @@
     <properties>
         <releaseRepoUrl>https://pkgs.dev.azure.com/NeoIntegration/MuleSoft/_packaging/mvn-public/maven/v1</releaseRepoUrl>
         <snapshotRepoUrl>https://pkgs.dev.azure.com/NeoIntegration/MuleSoft/_packaging/mvn-public/maven/v1</snapshotRepoUrl>
-
         <mule.version>4.1.2</mule.version>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
