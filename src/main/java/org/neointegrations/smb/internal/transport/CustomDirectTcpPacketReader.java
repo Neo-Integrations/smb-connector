@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 
 public class CustomDirectTcpPacketReader<D extends PacketData<?>> extends PacketReader<D> {
@@ -50,13 +51,6 @@ public class CustomDirectTcpPacketReader<D extends PacketData<?>> extends Packet
             throw e;
         } catch (IOException | Buffer.BufferException e) {
             _logger.error("Connection issue", e.getMessage(), e);
-            if(e instanceof SocketTimeoutException) {
-                try {
-                    this._connectionProvider.reconnect(this._connection);
-                } catch (ConnectionException ex) {
-                    ex.printStackTrace();
-                }
-            }
             throw new TransportException(e);
         }
     }

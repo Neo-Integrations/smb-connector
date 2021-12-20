@@ -15,7 +15,7 @@ import org.mule.runtime.extension.api.annotation.param.display.Summary;
 import org.mule.runtime.extension.api.runtime.operation.Result;
 import org.neointegrations.smb.api.SMBFileMatcher;
 import org.neointegrations.smb.internal.stream.ProgressInputStream;
-import org.neointegrations.smb.internal.stream.SMBFileAttributes;
+import org.neointegrations.smb.api.SMBFileAttributes;
 import org.neointegrations.smb.internal.util.SMBUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,10 +63,7 @@ public class SMBReadOperations  {
 
         if(_logger.isDebugEnabled()) _logger.debug("Listing a folder...");
 
-        if(smbConnection.getDiskShare() != null &&
-                !smbConnection.getDiskShare().isConnected()) {
-            throw new ConnectionException("Connection error, operation will be retried...");
-        }
+        SMBUtil.isConnected(smbConnection, sourceFolder);
 
         final Map<String, Long> nameSizeMap = new HashMap<>();
         if(sizeCheckEnabled) {
@@ -160,10 +157,8 @@ public class SMBReadOperations  {
                                @Placement(tab = ADVANCED_TAB) boolean sizeCheckEnabled
                             ) throws ConnectionException, InterruptedException {
 
-        if(smbConnection.getDiskShare() != null &&
-                !smbConnection.getDiskShare().isConnected()) {
-            throw new ConnectionException("Connection error, operation will be retried...");
-        }
+        SMBUtil.isConnected(smbConnection, sourceFolder);
+
         Result<InputStream, SMBFileAttributes> result = null;
 
         if(fileName == null) {
@@ -230,10 +225,8 @@ public class SMBReadOperations  {
                                      location = EXTERNAL) @Optional(defaultValue = "/home/share") String folder)
             throws ConnectionException {
 
-        if(smbConnection.getDiskShare() != null &&
-                !smbConnection.getDiskShare().isConnected()) {
-            throw new ConnectionException("Connection error, operation will be retried...");
-        }
+        SMBUtil.isConnected(smbConnection, folder);
+
         String dest = SMBUtil.prepareFilePath(folder, fileName);
         return smbConnection.getDiskShare().fileExists(dest);
     }
@@ -247,10 +240,8 @@ public class SMBReadOperations  {
                                       location = EXTERNAL) @Optional(defaultValue = "/home/share") String folder)
             throws ConnectionException {
 
-        if(smbConnection.getDiskShare() != null &&
-                !smbConnection.getDiskShare().isConnected()) {
-            throw new ConnectionException("Connection error, operation will be retried...");
-        }
+        SMBUtil.isConnected(smbConnection, folder);
+
         return smbConnection.getDiskShare().folderExists(folder);
     }
 
