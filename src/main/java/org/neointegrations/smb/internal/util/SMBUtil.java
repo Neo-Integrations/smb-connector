@@ -2,8 +2,10 @@ package org.neointegrations.smb.internal.util;
 
 import org.mule.extension.file.common.api.matcher.FileMatcher;
 import org.mule.extension.file.common.api.matcher.NullFilePayloadPredicate;
+import org.mule.runtime.api.connection.ConnectionException;
 import org.neointegrations.smb.internal.Constant;
-import org.neointegrations.smb.internal.stream.SMBFileAttributes;
+import org.neointegrations.smb.api.SMBFileAttributes;
+import org.neointegrations.smb.internal.SMBConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +63,25 @@ public class SMBUtil {
         } catch (Exception e) {
             _logger.warn("An exception occurred while closing {}", closeable, e);
         }
+    }
+
+    public static boolean isConnected(final SMBConnection smbConnection, final String folder)
+            throws ConnectionException {
+
+        if(smbConnection == null ||
+                smbConnection.getDiskShare() == null) {
+            throw new RuntimeException("Connection error, " +
+                    "unable to find either connection or diskshare instance");
+        }
+        try {
+            // This operation will raise exception if the connection has been severed
+            // The operation will return either true or false for success scenario.
+            smbConnection.getDiskShare().folderExists(folder);
+        } catch(Exception exp) {
+            throw new ConnectionException("Connection error, operation will be retried...");
+        }
+
+        return true;
     }
 
 }

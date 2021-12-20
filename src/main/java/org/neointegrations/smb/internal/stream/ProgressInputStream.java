@@ -3,7 +3,6 @@ package org.neointegrations.smb.internal.stream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Calendar;
-import java.util.concurrent.locks.ReentrantLock;
 
 
 import com.hierynomus.smbj.share.File;
@@ -15,11 +14,16 @@ import org.slf4j.LoggerFactory;
 public class ProgressInputStream extends InputStream {
 
     private static final Logger _logger = LoggerFactory.getLogger(ProgressInputStream.class);
-    private final ReentrantLock _lock = new ReentrantLock();
 
     private InputStream _inputStream;
     private File _file;
+
+    private String _fileName;
+    private final String _originalFileName;
+    private final String _directory;
+
     private boolean _finished = false;
+    private boolean _started = false;
     private final boolean _deleteOnFinished;
     private final boolean _createIntermediateFile;
     private final SMBConnection _smbConnection;
@@ -33,6 +37,9 @@ public class ProgressInputStream extends InputStream {
         this._smbConnection = smbConnection;
         this._lockTheFileWhileReading = lockTheFileWhileReading;
         this._file = file;
+        this._originalFileName = SMBUtil.fileName(file.getPath());
+        this._fileName = SMBUtil.fileName(file.getPath());
+        this._directory = SMBUtil.directory(file.getPath());
         this._deleteOnFinished = deleteOnFinished;
         this._createIntermediateFile = createIntermediateFile;
     }
@@ -41,11 +48,27 @@ public class ProgressInputStream extends InputStream {
     public void close() throws IOException {
         if(_inputStream != null) _inputStream.close();
         if(_file != null) {
-            if(_finished && _deleteOnFinished) {
+            if ((_started == true && _finished == true) &&
+                    _deleteOnFinished == true) {
+                // Delete the file, if
+                // - the transfer has been finished successfully,
+                // - the _deleteTheFileAfterRead == true and
+                // - the connection object was for the file.
                 _file.deleteOnClose();
+            } else if ((_started == true && _finished == false) &&
+                    _fileName != _originalFileName) {
+                // Rename to the original file name if
+                // - the file was renamed to intermediate name
+                // - the transfer was started but did not finished
+                renameToIntermediateOrOriginal(false);
             }
             _file.close();
         }
+        if(_logger.isDebugEnabled()) {
+            _logger.debug("_started={} _finished={} _deleteOnFinished={}", _started, _finished, _deleteOnFinished);
+            _logger.debug("_fileName={} _originalFileName={} ", _fileName, _originalFileName);
+        }
+
     }
 
     @Override
@@ -58,7 +81,8 @@ public class ProgressInputStream extends InputStream {
     public int read() throws IOException {
         if(_inputStream == null) lazyLoadStream();
         int count = this._inputStream.read();
-        if(count == -1) _finished = true;
+        if (_started == false && count >= 0) _started = true;
+        else if(count == -1) _finished = true;
         return count;
     }
 
@@ -67,7 +91,8 @@ public class ProgressInputStream extends InputStream {
     public int read(byte[] b) throws IOException {
         if(_inputStream == null) lazyLoadStream();
         int count = this._inputStream.read();
-        if(count == -1) _finished = true;
+        if (_started == false && count >= 0) _started = true;
+        else if(count == -1) _finished = true;
         return count;
     }
 
@@ -75,7 +100,8 @@ public class ProgressInputStream extends InputStream {
     public int read(byte[] b, int off, int len) throws IOException {
         if(_inputStream == null) lazyLoadStream();
         int count = this._inputStream.read(b, off, len);
-        if(count == -1) _finished = true;
+        if (_started == false && count >= 0) _started = true;
+        else if(count == -1) _finished = true;
         return count;
     }
 
@@ -105,25 +131,26 @@ public class ProgressInputStream extends InputStream {
 
     private void lazyLoadStream() {
         if(_inputStream != null) return;
-
-        _lock.lock();
-
         if(_createIntermediateFile == true) {
-            String intermediateFileName = "__" + Calendar.getInstance().getTimeInMillis() + "_" + SMBUtil.fileName(_file.getPath());
-            _file.rename(SMBUtil.trimPath(SMBUtil.directory(_file.getPath()), intermediateFileName));
-            try{
-                _file.close();
-            } catch(Exception ignored) {
-                _logger.error("Unable to close the file {}", ignored.getMessage(), ignored);
-            }
-            _file = _smbConnection.getSmbClient().openFileForRead(intermediateFileName,
-                    SMBUtil.directory(_file.getPath()), _smbConnection, _lockTheFileWhileReading);
-
-            _inputStream = _file.getInputStream();
+            renameToIntermediateOrOriginal(true);
         }
         _inputStream = _file.getInputStream();
-        if(_logger.isDebugEnabled()) _logger.debug("File stream opened {}", SMBUtil.fileName(_file.getUncPath()));
+        if(_logger.isDebugEnabled()) _logger.debug("File stream opened {}", _fileName);
+    }
 
-        _lock.unlock();
+    private void renameToIntermediateOrOriginal(boolean intermediate) {
+        String intermediateFileName = null;
+
+        if (intermediate)
+            intermediateFileName = "__" + Calendar.getInstance().getTimeInMillis() + "_" + _fileName;
+        else
+            intermediateFileName = this._originalFileName;
+
+        _file.rename(SMBUtil.trimPath(_directory, intermediateFileName));
+        SMBUtil.close(_file);
+        _file = _smbConnection.getSmbClient().openFileForRead(intermediateFileName,
+                _directory, _smbConnection, _lockTheFileWhileReading);
+
+        _fileName = intermediateFileName;
     }
 }

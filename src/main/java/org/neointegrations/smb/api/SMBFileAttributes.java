@@ -1,4 +1,4 @@
-package org.neointegrations.smb.internal.stream;
+package org.neointegrations.smb.api;
 
 import com.hierynomus.smbj.share.File;
 import org.mule.extension.file.common.api.AbstractFileAttributes;

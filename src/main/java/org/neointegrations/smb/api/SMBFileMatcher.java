@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
-import org.neointegrations.smb.internal.stream.SMBFileAttributes;
 import org.slf4j.Logger;
 
 @Alias("matcher")
