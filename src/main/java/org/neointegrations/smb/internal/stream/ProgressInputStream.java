@@ -2,7 +2,7 @@ package org.neointegrations.smb.internal.stream;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Calendar;
+import java.time.LocalDateTime;
 
 
 import com.hierynomus.smbj.share.File;
@@ -28,12 +28,14 @@ public class ProgressInputStream extends InputStream {
     private final boolean _createIntermediateFile;
     private final SMBConnection _smbConnection;
     private final boolean _lockTheFileWhileReading;
+    private final String _timestamp;
 
     public ProgressInputStream(final SMBConnection smbConnection,
                                final boolean lockTheFileWhileReading,
                                final File file,
                                final boolean deleteOnFinished,
-                               final boolean createIntermediateFile) {
+                               final boolean createIntermediateFile,
+                               final LocalDateTime timestamp) {
         this._smbConnection = smbConnection;
         this._lockTheFileWhileReading = lockTheFileWhileReading;
         this._file = file;
@@ -42,6 +44,7 @@ public class ProgressInputStream extends InputStream {
         this._directory = SMBUtil.directory(file.getPath());
         this._deleteOnFinished = deleteOnFinished;
         this._createIntermediateFile = createIntermediateFile;
+        this._timestamp = SMBUtil.timestamp(timestamp);
     }
 
     @Override
@@ -142,7 +145,7 @@ public class ProgressInputStream extends InputStream {
         String intermediateFileName = null;
 
         if (intermediate)
-            intermediateFileName = "__" + Calendar.getInstance().getTimeInMillis() + "_" + _fileName;
+            intermediateFileName = SMBUtil.makeIntermediateFileName(this._timestamp, _fileName);
         else
             intermediateFileName = this._originalFileName;
 
