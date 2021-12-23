@@ -36,7 +36,7 @@ Even though there are many connectors in the market, they do not support all the
 > <dependency>
 >    <groupId>org.neointegrations</groupId>
 >    <artifactId>smb-connector</artifactId>
->    <version>1.0.6</version>
+>    <version>1.0.7</version>
 >    <classifier>mule-plugin</classifier>
 > </dependency>
 >    ```
