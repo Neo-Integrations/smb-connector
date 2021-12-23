@@ -131,7 +131,7 @@ public class SMBReadOperations  {
             files.add(Result.<InputStream, SMBFileAttributes>builder()
                     .output(new ProgressInputStream(smbConnection, lockTheFileWhileReading,
                             sourceFile, deleteTheFileAfterRead,
-                            createIntermediateFile))
+                            createIntermediateFile, attr.getTimestamp()))
                     .attributes(attr)
                     .build());
         });
@@ -206,7 +206,7 @@ public class SMBReadOperations  {
         result = Result.<InputStream, SMBFileAttributes>builder()
                 .output(new ProgressInputStream(smbConnection, lockFileWhileReading,
                         file,deleteFileAfterRead,
-                        createIntermediateFile))
+                        createIntermediateFile, attr.getTimestamp()))
                 .attributes(attr)
                 .build();
 

@@ -10,11 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.function.Predicate;
 
 public class SMBUtil {
 
     private static final Logger _logger = LoggerFactory.getLogger(SMBUtil.class);
+    private final static DateTimeFormatter TS_FORMATTER = DateTimeFormatter.ofPattern("YYYYMMddhhmmssSSS");
+    private final static String TIME_STAMP_DEFAULT_STR = "TS";
 
     public static String prepareFilePath(String folder, String fileName) {
         String formattedName = fileName.startsWith(Constant.FRONT_SLASH) ?
@@ -82,6 +86,27 @@ public class SMBUtil {
         }
 
         return true;
+    }
+
+    public static String makeIntermediateFileName(LocalDateTime timestamp, String fName) {
+        if(fName == null) return fName;
+        String tsStr = timestamp(timestamp);
+        return "__" + tsStr + "_" + fName;
+    }
+    public static String makeIntermediateFileName(String timestamp, String fName) {
+        if(fName == null) return fName;
+        String tsStr = TIME_STAMP_DEFAULT_STR;
+        if(timestamp != null) {
+            tsStr = timestamp;
+        }
+        return "__" + tsStr + "_" + fName;
+    }
+    public static String timestamp(LocalDateTime timestamp){
+        if(timestamp != null) {
+            return timestamp.format(TS_FORMATTER);
+        } else {
+            return TIME_STAMP_DEFAULT_STR;
+        }
     }
 
 }

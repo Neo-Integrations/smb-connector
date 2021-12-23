@@ -7,9 +7,7 @@ import com.hierynomus.smbj.share.Directory;
 import com.hierynomus.smbj.share.File;
 import org.mule.runtime.api.connection.ConnectionException;
 import org.mule.runtime.core.api.util.IOUtils;
-import org.mule.runtime.extension.api.annotation.param.Config;
-import org.mule.runtime.extension.api.annotation.param.MediaType;
-import org.mule.runtime.extension.api.annotation.param.Optional;
+import org.mule.runtime.extension.api.annotation.param.*;
 import org.mule.runtime.extension.api.annotation.param.display.DisplayName;
 import org.mule.runtime.extension.api.annotation.param.display.Path;
 import org.mule.runtime.extension.api.annotation.param.display.Placement;
@@ -18,10 +16,11 @@ import org.neointegrations.smb.internal.util.SMBUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.mule.runtime.extension.api.annotation.param.Connection;
-
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
@@ -35,29 +34,29 @@ public class SMBWriteOperations {
 
 
     @Summary("Create a new file in the SMB server using the input content")
-    @MediaType( value = "*/*", strict = false )
+    @MediaType(value = "*/*", strict = false)
     @DisplayName("Write File")
     public boolean write(@Config final SMBConfiguration smbConfig,
-                             @Connection SMBConnection smbConnection,
-                             @Optional(defaultValue = "#[payload]") InputStream sourceStream,
-                             @Optional(defaultValue = "#[attributes.fileName]") String targetFileName,
-                             @Optional(defaultValue = "false")  boolean createIntermediateFile,
-                             @Path(type = DIRECTORY, location = EXTERNAL)
-                                @Optional(defaultValue = "/home/share") String targetFolder,
-                             @Optional(defaultValue = "true")
-                                @Placement( tab = ADVANCED_TAB) boolean overwriteFile,
-                             @Optional(defaultValue = "false")
-                                @Placement( tab = ADVANCED_TAB) boolean lockFileWhileWriting,
-                             @Optional(defaultValue = "true")
-                                @Placement( tab = ADVANCED_TAB) boolean createParentDirectory,
-                             @Optional(defaultValue = "false")
-                                @Placement( tab = ADVANCED_TAB) boolean appendToTargetFile)
+                         @Connection SMBConnection smbConnection,
+                         @Optional(defaultValue = "#[payload]") InputStream sourceStream,
+                         @Optional(defaultValue = "#[attributes.fileName]") String targetFileName,
+                         @Optional(defaultValue = "false") boolean createIntermediateFile,
+                         @Path(type = DIRECTORY, location = EXTERNAL)
+                         @Optional(defaultValue = "/home/share") String targetFolder,
+                         @Optional(defaultValue = "true")
+                         @Placement(tab = ADVANCED_TAB) boolean overwriteFile,
+                         @Optional(defaultValue = "false")
+                         @Placement(tab = ADVANCED_TAB) boolean lockFileWhileWriting,
+                         @Optional(defaultValue = "true")
+                         @Placement(tab = ADVANCED_TAB) boolean createParentDirectory,
+                         @Optional(defaultValue = "false")
+                         @Placement(tab = ADVANCED_TAB) boolean appendToTargetFile)
             throws ConnectionException {
 
         _logger.info("Saving file {}", targetFileName);
         boolean fileCreate = false;
 
-        if(smbConnection.getDiskShare() != null &&
+        if (smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
         }
@@ -65,16 +64,16 @@ public class SMBWriteOperations {
         File fileToWrite = null;
         try {
 
-            if(createParentDirectory) {
-                if(!smbConnection.getDiskShare().folderExists(targetFolder)) {
+            if (createParentDirectory) {
+                if (!smbConnection.getDiskShare().folderExists(targetFolder)) {
                     smbConnection.getDiskShare().mkdir(targetFolder);
                 }
             }
             String intermediateFileName = "__" + Calendar.getInstance().getTimeInMillis() + "_" + targetFileName;
             fileToWrite = smbConnection.getSmbClient().openFileForWrite(
-                    (createIntermediateFile == true? intermediateFileName : targetFileName),
+                    (createIntermediateFile == true ? intermediateFileName : targetFileName),
                     targetFolder, smbConnection,
-                    overwriteFile,  appendToTargetFile,  lockFileWhileWriting);
+                    overwriteFile, appendToTargetFile, lockFileWhileWriting);
 
             outStream = fileToWrite.getOutputStream(appendToTargetFile);
             IOUtils.copyLarge(sourceStream, outStream);
@@ -83,7 +82,7 @@ public class SMBWriteOperations {
             outStream.close();
             outStream = null;
 
-            if(createIntermediateFile) {
+            if (createIntermediateFile) {
                 String targetPath = SMBUtil.prepareFilePath(targetFolder, targetFileName);
                 fileToWrite.rename(targetPath);
                 fileToWrite.close();
@@ -94,34 +93,54 @@ public class SMBWriteOperations {
             _logger.error("Something went wrong while writing the file", exp);
             throw new RuntimeException(exp);
         } finally {
-                try{ if (outStream != null) outStream.flush(); }catch(Exception ignored){}
-                try{ if (outStream != null) outStream.close(); }catch(Exception ignored){}
-                try{ if (fileToWrite != null) fileToWrite.close(); }catch(Exception ignored){}
+            try {
+                if (outStream != null) outStream.flush();
+            } catch (Exception ignored) {
+            }
+            try {
+                if (outStream != null) outStream.close();
+            } catch (Exception ignored) {
+            }
+            try {
+                if (fileToWrite != null) fileToWrite.close();
+            } catch (Exception ignored) {
+            }
         }
     }
 
     @Summary("Deleting a file from the SMB server")
-    @MediaType( value = "*/*", strict = false )
+    @MediaType(value = "*/*", strict = false)
     @DisplayName("Delete File")
     public boolean rmFile(@Config final SMBConfiguration smbConfig,
-                         @Connection SMBConnection smbConnection,
-                         @Optional(defaultValue = "#[attributes.fileName]") String targetFileName,
-                          @Optional(defaultValue = "true") @Placement( tab = ADVANCED_TAB) boolean ignoreErrorWhenFileNotPresent,
-                         @Path(type = DIRECTORY, location = EXTERNAL)
-                              @Optional(defaultValue = "/home/share") String targetFolder) throws ConnectionException {
+                          @Connection SMBConnection smbConnection,
+                          @Optional(defaultValue = "#[attributes.fileName]") String targetFileName,
+                          @Optional(defaultValue = "#[attributes.timestamp]")
+                          @Summary("Only useful when the file was read using 'Create Intermediate file' flag on")
+                                  LocalDateTime timestamp,
+                          @Optional(defaultValue = "true")
+                          @Placement(tab = ADVANCED_TAB)
+                                  boolean ignoreErrorWhenFileNotPresent,
+                          @Path(type = DIRECTORY, location = EXTERNAL)
+                          @Optional(defaultValue = "/home/share") String targetFolder) throws ConnectionException {
 
-        String fileName = SMBUtil.prepareFilePath(targetFolder, targetFileName);
 
-        if(smbConnection.getDiskShare() != null &&
+        if (smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
         }
+
+        String fileName = SMBUtil.prepareFilePath(targetFolder, targetFileName);
         try {
-            if(smbConnection.getDiskShare().fileExists(fileName)) {
+            String fName = SMBUtil.makeIntermediateFileName(timestamp, targetFileName);
+            String intermediateFileName = SMBUtil.trimPath(targetFolder, fName);
+            if (smbConnection.getDiskShare().fileExists(fileName)) {
                 smbConnection.getDiskShare().rm(fileName);
-            } else if(!ignoreErrorWhenFileNotPresent) {
-                throw new IllegalStateException("File does not exists");
+            } else if (smbConnection.getDiskShare().fileExists(intermediateFileName)) {
+                smbConnection.getDiskShare().rm(intermediateFileName);
+            } else if (!ignoreErrorWhenFileNotPresent) {
+                throw new FileNotFoundException("File does not exists");
             }
+
             return true;
         } catch (Exception exp) {
             _logger.error("Something went wrong while deleting the file {}", fileName, exp);
@@ -131,26 +150,26 @@ public class SMBWriteOperations {
     }
 
     @Summary("Deleting a folder from the SMB server. If a folder has files, make sure to delete them first first, before deleting the folder. In case for force deleting everything, use the recursive=true")
-    @MediaType( value = "*/*", strict = false )
+    @MediaType(value = "*/*", strict = false)
     @DisplayName("Remove Directory")
     public boolean rmDir(@Config final SMBConfiguration smbConfig,
-                              @Connection SMBConnection smbConnection,
-                              @Path(type = DIRECTORY, location = EXTERNAL)
-                                @Optional(defaultValue = "/home/share") String targetFolder,
-                              @Optional(defaultValue = "true")
-                                @Placement( tab = ADVANCED_TAB) boolean ignoreErrorWhenDirNotPresent,
-                              @Optional(defaultValue = "true")
-                                @Placement( tab = ADVANCED_TAB) boolean recursive) throws ConnectionException {
+                         @Connection SMBConnection smbConnection,
+                         @Path(type = DIRECTORY, location = EXTERNAL)
+                         @Optional(defaultValue = "/home/share") String targetFolder,
+                         @Optional(defaultValue = "true")
+                         @Placement(tab = ADVANCED_TAB) boolean ignoreErrorWhenDirNotPresent,
+                         @Optional(defaultValue = "true")
+                         @Placement(tab = ADVANCED_TAB) boolean recursive) throws ConnectionException {
 
-        if(smbConnection.getDiskShare() != null &&
+        if (smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
         }
         try {
-            if(smbConnection.getDiskShare().folderExists(targetFolder)) {
+            if (smbConnection.getDiskShare().folderExists(targetFolder)) {
                 smbConnection.getDiskShare().rmdir(targetFolder, recursive);
-            } else if(!ignoreErrorWhenDirNotPresent){
-                throw new IllegalStateException("Folder ["+ targetFolder+"] does not exists");
+            } else if (!ignoreErrorWhenDirNotPresent) {
+                throw new IllegalStateException("Folder [" + targetFolder + "] does not exists");
             }
             return true;
         } catch (Exception exp) {
@@ -160,24 +179,24 @@ public class SMBWriteOperations {
     }
 
     @Summary("Create a new directory if not already exists")
-    @MediaType( value = "*/*", strict = false )
+    @MediaType(value = "*/*", strict = false)
     @DisplayName("Create Directory")
     public boolean mkDir(@Config final SMBConfiguration smbConfig,
-                                   @Connection SMBConnection smbConnection,
-                                   @Path(type = DIRECTORY, location = EXTERNAL)
-                                        @Optional(defaultValue = "/home/share") String targetFolder,
-                                   @Optional(defaultValue = "true")
-                                        @Placement( tab = ADVANCED_TAB) boolean ignoreErrorOnExists) throws ConnectionException {
+                         @Connection SMBConnection smbConnection,
+                         @Path(type = DIRECTORY, location = EXTERNAL)
+                         @Optional(defaultValue = "/home/share") String targetFolder,
+                         @Optional(defaultValue = "true")
+                         @Placement(tab = ADVANCED_TAB) boolean ignoreErrorOnExists) throws ConnectionException {
 
-        if(smbConnection.getDiskShare() != null &&
+        if (smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
         }
         try {
-            if(!smbConnection.getDiskShare().folderExists(targetFolder)) {
+            if (!smbConnection.getDiskShare().folderExists(targetFolder)) {
                 smbConnection.getDiskShare().mkdir(targetFolder);
-            } else if(!ignoreErrorOnExists) {
-                throw new IllegalStateException("Folder ["+ targetFolder+"] already exists");
+            } else if (!ignoreErrorOnExists) {
+                throw new IllegalStateException("Folder [" + targetFolder + "] already exists");
             }
             return true;
         } catch (Exception exp) {
@@ -187,67 +206,81 @@ public class SMBWriteOperations {
     }
 
     @Summary("Rename directory/file if already exists")
-    @MediaType( value = "*/*", strict = false )
+    @MediaType(value = "*/*", strict = false)
     @DisplayName("Rename a File / Directory")
     public boolean rename(@Config final SMBConfiguration smbConfig,
-                         @Connection SMBConnection smbConnection,
-                         @Path(type = DIRECTORY, location = EXTERNAL) @Optional(defaultValue = "/home/share") String sourceFolder,
-                         @Optional(defaultValue = "#[null]") String sourceFileName,
-                         @Optional(defaultValue = "true") @Placement( tab = ADVANCED_TAB) boolean createParentDirectory,
-                         @Path(type = DIRECTORY, location = EXTERNAL) @Optional(defaultValue = "/home/share") String targetFolder,
-                         @Optional(defaultValue = "#[null]") String targetFileName,
-                         @Optional(defaultValue = "true") @Placement( tab = ADVANCED_TAB) boolean ignoreErrorOnExists
-    ) throws ConnectionException {
+                          @Connection SMBConnection smbConnection,
+                          @Path(type = DIRECTORY, location = EXTERNAL) @Optional(defaultValue = "/home/share") String sourceFolder,
+                          @Optional(defaultValue = "#[null]") String sourceFileName,
+                          @Optional(defaultValue = "true") @Placement(tab = ADVANCED_TAB) boolean createParentDirectory,
+                          @Path(type = DIRECTORY, location = EXTERNAL) @Optional(defaultValue = "/home/share") String targetFolder,
+                          @Optional(defaultValue = "#[null]") String targetFileName,
+                          @Optional(defaultValue = "true") @Placement(tab = ADVANCED_TAB) boolean ignoreErrorOnExists,
+                          @Optional(defaultValue = "#[attributes.timestamp]")
+                              @Summary("Only useful when the file was read using 'Create Intermediate file' flag on")
+                                      LocalDateTime timestamp) throws ConnectionException {
 
         boolean isFileRename = false;
-        if(sourceFolder == null || targetFolder == null) {
+        if (sourceFolder == null || targetFolder == null) {
             throw new IllegalArgumentException("Both sourceFolder and targetFolder must be provider");
         }
 
-        if(sourceFileName != null || targetFileName != null) {
+        if (sourceFileName != null || targetFileName != null) {
             isFileRename = true;
-            if(sourceFileName == null || targetFileName == null)
+            if (sourceFileName == null || targetFileName == null)
                 throw new IllegalArgumentException("Both sourceFileName and targetFileName requires when renaming a file");
         }
 
-        String sourcePath = (sourceFileName != null)? SMBUtil.trimPath(sourceFolder, sourceFileName): sourceFolder;
-        String targetPath = (targetFileName != null)? SMBUtil.trimPath(targetFolder, targetFileName): targetFolder;
+        String sourcePath = (sourceFileName != null) ? SMBUtil.trimPath(sourceFolder, sourceFileName) : sourceFolder;
+        String targetPath = (targetFileName != null) ? SMBUtil.trimPath(targetFolder, targetFileName) : targetFolder;
 
-        if(smbConnection.getDiskShare() != null &&
+        if (smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
             //smbConnection.getProvider().reconnect();
         }
         try {
 
-            if(createParentDirectory) {
-                if(!smbConnection.getDiskShare().folderExists(targetFolder)) {
+            if (createParentDirectory) {
+                if (!smbConnection.getDiskShare().folderExists(targetFolder)) {
                     smbConnection.getDiskShare().mkdir(targetFolder);
                 }
             }
 
-            if(!isFileRename) {
-                if(!smbConnection.getDiskShare().folderExists(targetPath)) {
+            if (!isFileRename) {
+                if (!smbConnection.getDiskShare().folderExists(targetPath)) {
                     Set<AccessMask> accessMasks = new HashSet();
                     accessMasks.add(AccessMask.MAXIMUM_ALLOWED);
                     try (Directory dir = smbConnection.getDiskShare().openDirectory(sourcePath, accessMasks,
-                            null, SMB2ShareAccess.ALL, SMB2CreateDisposition.FILE_OPEN,  null))
-                    {
+                            null, SMB2ShareAccess.ALL, SMB2CreateDisposition.FILE_OPEN, null)) {
                         dir.rename(targetFolder);
                     }
-                } else if(!ignoreErrorOnExists) {
-                    throw new IllegalStateException("Folder ["+ targetPath+"] already exists");
+                } else if (!ignoreErrorOnExists) {
+                    throw new IllegalStateException("Folder [" + targetPath + "] already exists");
                 }
             } else {
-                if(!smbConnection.getDiskShare().fileExists(targetPath)) {
-                    try (File sourceFile = smbConnection.getSmbClient().openFileForRead(
-                            sourceFileName, sourceFolder, smbConnection, false))
-                    {
-                        sourceFile.rename(targetPath);
 
+                String fName = SMBUtil.makeIntermediateFileName(timestamp,sourceFileName);
+                String intermediateFileName = SMBUtil.trimPath(sourceFolder, fName);
+
+                if (!smbConnection.getDiskShare().fileExists(targetPath)) {
+                    if (smbConnection.getDiskShare().fileExists(sourcePath)) {
+                        try (File sourceFile = smbConnection.getSmbClient().openFileForRead(
+                                sourceFileName, sourceFolder, smbConnection, false)) {
+                            sourceFile.rename(targetPath);
+
+                        }
+                    } else if (smbConnection.getDiskShare().fileExists(intermediateFileName)) {
+                        try (File sourceFile = smbConnection.getSmbClient().openFileForRead(
+                                fName, sourceFolder, smbConnection, false)) {
+                            sourceFile.rename(targetPath);
+
+                        }
+                    } else {
+                        throw new FileNotFoundException("Source file does not exists");
                     }
-                } else if(!ignoreErrorOnExists) {
-                    throw new IllegalStateException("File ["+ targetPath+"] already exists");
+                } else if (!ignoreErrorOnExists) {
+                    throw new IllegalStateException("File [" + targetPath + "] already exists");
                 }
             }
 
@@ -259,28 +292,31 @@ public class SMBWriteOperations {
     }
 
     @Summary("Copy a file from one location to another in the remote SB server. It is like the unit command `mv`")
-    @MediaType( value = "*/*", strict = false )
+    @MediaType(value = "*/*", strict = false)
     @DisplayName("Remote Copy File")
     public boolean remoteCopy(@Config final SMBConfiguration smbConfig,
-                         @Connection SMBConnection smbConnection,
-                         @Path(type = DIRECTORY,
-                                 location = EXTERNAL) @Optional(defaultValue = "/home/share") String sourceFolder,
-                         @Optional(defaultValue = "source.txt") String sourceFileName,
-                         @Optional(defaultValue = "true")
-                                  @Placement( tab = ADVANCED_TAB) boolean deleteSourceFileAfterRead,
-                         @Optional(defaultValue = "false")
-                                  @Placement(tab = ADVANCED_TAB) boolean lockFileWhileReading,
-                         @Path(type = DIRECTORY,location = EXTERNAL)
-                                  @Optional(defaultValue = "/home/share") String targetFolder,
-                         @Optional(defaultValue = "target.txt") String targetFileName,
-                         @Optional(defaultValue = "true") @Placement(
-                                 tab = ADVANCED_TAB) boolean overwriteTargetFile,
-                         @Optional(defaultValue = "false") @Placement(
-                                 tab = ADVANCED_TAB) boolean lockFileWhileWriting,
-                         @Optional(defaultValue = "false") @Placement(
-                                 tab = ADVANCED_TAB) boolean appendToTheTargetFile) throws ConnectionException {
+                              @Connection SMBConnection smbConnection,
+                              @Path(type = DIRECTORY,
+                                      location = EXTERNAL) @Optional(defaultValue = "/home/share") String sourceFolder,
+                              @Optional(defaultValue = "source.txt") String sourceFileName,
+                              @Optional(defaultValue = "true")
+                              @Placement(tab = ADVANCED_TAB) boolean deleteSourceFileAfterRead,
+                              @Optional(defaultValue = "false")
+                              @Placement(tab = ADVANCED_TAB) boolean lockFileWhileReading,
+                              @Path(type = DIRECTORY, location = EXTERNAL)
+                              @Optional(defaultValue = "/home/share") String targetFolder,
+                              @Optional(defaultValue = "target.txt") String targetFileName,
+                              @Optional(defaultValue = "true") @Placement(
+                                      tab = ADVANCED_TAB) boolean overwriteTargetFile,
+                              @Optional(defaultValue = "false") @Placement(
+                                      tab = ADVANCED_TAB) boolean lockFileWhileWriting,
+                              @Optional(defaultValue = "false") @Placement(
+                                      tab = ADVANCED_TAB) boolean appendToTheTargetFile,
+                              @Optional(defaultValue = "#[attributes.timestamp]")
+                                  @Summary("Only useful when the file was read using 'Create Intermediate file' flag on")
+                                          LocalDateTime timestamp) throws ConnectionException {
 
-        if(smbConnection.getDiskShare() != null &&
+        if (smbConnection.getDiskShare() != null &&
                 !smbConnection.getDiskShare().isConnected()) {
             throw new ConnectionException("Connection error, operation will be retried...");
         }
@@ -288,10 +324,23 @@ public class SMBWriteOperations {
         File targetFile = null;
         try {
 
-            sourceFile = smbConnection.getSmbClient().openFileForRead(sourceFileName,
-                    sourceFolder, smbConnection, lockFileWhileReading);
+            String sourcePath = SMBUtil.trimPath(sourceFolder, sourceFileName);
+            String targetPath = SMBUtil.trimPath(targetFolder, targetFileName);
 
-            if(deleteSourceFileAfterRead) {
+            String fName = SMBUtil.makeIntermediateFileName(timestamp, sourceFileName);
+            String intermediateFileName = SMBUtil.trimPath(sourceFolder, fName);
+
+            if (smbConnection.getDiskShare().fileExists(sourcePath)) {
+                sourceFile = smbConnection.getSmbClient().openFileForRead(sourceFileName,
+                        sourceFolder, smbConnection, lockFileWhileReading);
+            } else if (smbConnection.getDiskShare().fileExists(intermediateFileName)) {
+                sourceFile = smbConnection.getSmbClient().openFileForRead(fName,
+                        sourceFolder, smbConnection, lockFileWhileReading);
+            } else {
+                throw new FileNotFoundException("Source file does not exists");
+            }
+
+            if (deleteSourceFileAfterRead) {
                 sourceFile.deleteOnClose();
             }
 
@@ -309,8 +358,18 @@ public class SMBWriteOperations {
             _logger.error("Something went wrong while deleting the directory {}", targetFolder, exp);
             throw new RuntimeException(exp);
         } finally {
-           if(sourceFile != null) {try{sourceFile.close();} catch(Exception ignored){}}
-           if(targetFile != null) { try{targetFile.close();} catch(Exception ignored){}}
+            if (sourceFile != null) {
+                try {
+                    sourceFile.close();
+                } catch (Exception ignored) {
+                }
+            }
+            if (targetFile != null) {
+                try {
+                    targetFile.close();
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 

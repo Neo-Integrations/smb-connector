@@ -146,20 +146,20 @@ public class SMBSources extends PollingSource<InputStream, SMBFileAttributes> {
             try {
                 connection  = _connectionProvider.connect();
                 if(postAction.isAutoDelete()) {
-                    ops.rmFile(config, connection, attrs.getName(),
+                    ops.rmFile(config, connection, attrs.getName(), attrs.getTimestamp(),
                             true, attrs.getPath());
                 }
 
                 if(postAction.getRenameTo() != null) {
                     ops.rename(config, connection, attrs.getPath(),
                             attrs.getName(), true,
-                            attrs.getPath(), postAction.getRenameTo(), false);
+                            attrs.getPath(), postAction.getRenameTo(), false, attrs.getTimestamp());
                 }
 
                 if(postAction.getMoveToDirectory() != null) {
                     ops.rename(config, connection, attrs.getPath(),
                             attrs.getName(), true,
-                            postAction.getMoveToDirectory(), attrs.getName(), false);
+                            postAction.getMoveToDirectory(), attrs.getName(), false, attrs.getTimestamp());
                 }
 
             } catch (ConnectionException e){
@@ -186,20 +186,20 @@ public class SMBSources extends PollingSource<InputStream, SMBFileAttributes> {
                 try {
                     connection  = _connectionProvider.connect();
                     if(postAction.isAutoDelete()) {
-                        ops.rmFile(config, connection, attrs.getName(),
+                        ops.rmFile(config, connection, attrs.getName(), attrs.getTimestamp(),
                                 true, attrs.getPath());
                     }
 
                     if(postAction.getRenameTo() != null) {
                         ops.rename(config, connection, attrs.getPath(),
                                 attrs.getName(), true,
-                                attrs.getPath(), postAction.getRenameTo(), false);
+                                attrs.getPath(), postAction.getRenameTo(), false, attrs.getTimestamp());
                     }
 
                     if(postAction.getMoveToDirectory() != null) {
                         ops.rename(config, connection, attrs.getPath(),
                                 attrs.getName(), true,
-                                postAction.getMoveToDirectory(), attrs.getName(), false);
+                                postAction.getMoveToDirectory(), attrs.getName(), false, attrs.getTimestamp());
                     }
 
                 } catch (ConnectionException e){
